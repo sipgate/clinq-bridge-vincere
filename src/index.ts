@@ -4,9 +4,13 @@ import {
   Contact,
   PhoneNumber,
   PhoneNumberLabel,
-  start
+  start,
 } from "@clinq/bridge";
 import { Request } from "express";
+import { VincereOAuthResponse } from "./vincere.model";
+import { stringify } from "querystring";
+import parseEnvironment from "./parse-environment";
+import axios, { AxiosInstance } from "axios";
 
 class MyAdapter implements Adapter {
   /**
@@ -15,7 +19,7 @@ class MyAdapter implements Adapter {
   public async getContacts(config: Config): Promise<Contact[]> {
     const phoneNumber: PhoneNumber = {
       label: PhoneNumberLabel.MOBILE,
-      phoneNumber: "+4915799912345"
+      phoneNumber: "+4915799912345",
     };
     const contact: Contact = {
       id: "7f23375d-35e2-4034-889a-2bdc9cba9633",
@@ -28,7 +32,7 @@ class MyAdapter implements Adapter {
         "https://www.example.com/contact/7f23375d-35e2-4034-889a-2bdc9cba9633",
       avatarUrl:
         "https://www.example.com/contact/7f23375d-35e2-4034-889a-2bdc9cba9633/avatar.png",
-      phoneNumbers: [phoneNumber]
+      phoneNumbers: [phoneNumber],
     };
     const contacts: Contact[] = await Promise.resolve([contact]);
     return contacts;
@@ -56,18 +60,29 @@ class MyAdapter implements Adapter {
   public async handleOAuth2Callback(
     req: Request
   ): Promise<{ apiKey: string; apiUrl: string }> {
-    // EXAMPLE:
-    // const { code } = req.query;
-    // const query = queryString.stringify({ code });
-    // const response = await request(`https://crm.example.com/oauth2/token?${query}`)
-    // return {
-    // 	apiKey: response.accessToken,
-    // 	apiUrl: response.instanceUrl
-    // };
+    const { clientId, redirectUrl } = parseEnvironment();
+
+    const requestParams = stringify({
+      grant_type: "authorization_code",
+      code: req.query.code?.toString(),
+      client_id: clientId,
+    });
+
+    const {
+      data: { refresh_token, access_token, id_token, token_type, expires_in },
+    } = await axios.post<VincereOAuthResponse>(
+      "https://id.vincere.io/oauth2/token",
+      requestParams,
+      {
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+      }
+    );
 
     return Promise.resolve({
-      apiKey: "a1b2c3",
-      apiUrl: "https://eu5.crm.example.com/api"
+      apiKey: access_token,
+      apiUrl: "https://api.vincere.io/api/v2/",
     });
   }
 }

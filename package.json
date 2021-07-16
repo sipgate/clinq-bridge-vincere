@@ -25,7 +25,8 @@
     "@types/express": "^4.17.6",
     "@types/node": "^13.13.4",
     "express": "^4.17.1",
-    "typescript": "^3.8.3"
+    "typescript": "^3.8.3",
+    "axios": "^0.21.1"
   },
   "devDependencies": {
     "husky": "^4.2.5",
