@@ -44,10 +44,14 @@ class MyAdapter implements Adapter {
    * Users will be redirected here to authorize CLINQ.
    */
   public async getOAuth2RedirectUrl(): Promise<string> {
-    const redirectUrl = await Promise.resolve(
-      "https://crm.example.com/oauth2/authorize"
-    );
-    return redirectUrl;
+    const { clientId, redirectUri } = parseEnvironment();
+    const query = {
+      response_type: "code",
+      client_id: clientId,
+      redirect_uri: "http://localhost:8080/oauth2/callback",
+      state: "",
+    };
+    return `https://id.vincere.io/oauth2/authorize?${stringify(query)}`;
   }
 
   /**
@@ -60,7 +64,7 @@ class MyAdapter implements Adapter {
   public async handleOAuth2Callback(
     req: Request
   ): Promise<{ apiKey: string; apiUrl: string }> {
-    const { clientId, redirectUrl } = parseEnvironment();
+    const { clientId } = parseEnvironment();
 
     const requestParams = stringify({
       grant_type: "authorization_code",
@@ -68,9 +72,7 @@ class MyAdapter implements Adapter {
       client_id: clientId,
     });
 
-    const {
-      data: { refresh_token, access_token, id_token, token_type, expires_in },
-    } = await axios.post<VincereOAuthResponse>(
+    const data = await axios.post<VincereOAuthResponse>(
       "https://id.vincere.io/oauth2/token",
       requestParams,
       {
@@ -79,9 +81,8 @@ class MyAdapter implements Adapter {
         },
       }
     );
-
     return Promise.resolve({
-      apiKey: access_token,
+      apiKey: data.data.access_token,
       apiUrl: "https://api.vincere.io/api/v2/",
     });
   }
