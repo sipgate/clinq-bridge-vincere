@@ -1,20 +1,19 @@
-export interface OAuth2Options {
-  clientId: string | undefined;
-  apiUrl: string | undefined;
-  clientSecret: string | undefined;
-}
+export type EnvConfig = {
+  clientId: string;
+  apiUrl: string;
+  clientSecret: string;
+};
 
-export default function parseEnvironment(): OAuth2Options {
-  const clientId: string | undefined = process.env.clientId;
-  const apiUrl: string | undefined = process.env.apiUrl;
-  const clientSecret: string | undefined = process.env.clientSecret;
-  if (!process.env.clientId) {
+const { clientId, apiUrl, clientSecret } = process.env;
+
+export default function parseEnvironment(): EnvConfig {
+  if (!clientId) {
     throw new Error("Missing clientId in environment.");
   }
-  if (!process.env.apiUrl) {
+  if (!apiUrl) {
     throw new Error("Missing apiUrl in environment.");
   }
-  if (!process.env.clientSecret) {
+  if (!clientSecret) {
     throw new Error("Missing clientSecret in environment.");
   }
   return {

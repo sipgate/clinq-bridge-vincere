@@ -1,21 +1,23 @@
 import { PhoneNumber, PhoneNumberLabel, Contact } from "@clinq/bridge";
 
+const sanitizePhonenumber = (phone: string) => phone.replace(/[^\+0-9]*/g, "");
+
 export const mapToClinqContact = (vincereContactItem: any) => {
   const phoneNumbers: PhoneNumber[] = [];
   if (vincereContactItem.phone) {
     phoneNumbers.push({
       label: PhoneNumberLabel.WORK,
-      phoneNumber: vincereContactItem.phone[0],
+      phoneNumber: sanitizePhonenumber(vincereContactItem.phone[0]),
     });
   }
   if (vincereContactItem.mobile) {
     phoneNumbers.push({
       label: PhoneNumberLabel.MOBILE,
-      phoneNumber: vincereContactItem.mobile[0],
+      phoneNumber: sanitizePhonenumber(vincereContactItem.mobile[0]),
     });
   }
   const contact: Contact = {
-    id: vincereContactItem.id,
+    id: `${vincereContactItem.id}`,
     email: vincereContactItem.email ? vincereContactItem.email[0] : null,
     name: vincereContactItem.name ? vincereContactItem.name : null,
     firstName: vincereContactItem.name
@@ -32,8 +34,8 @@ export const mapToClinqContact = (vincereContactItem: any) => {
         ? vincereContactItem.company.name
         : null
       : null,
-    contactUrl: null,
-    avatarUrl: null,
+    contactUrl: "",
+    avatarUrl: "",
     phoneNumbers,
   };
   return contact;
