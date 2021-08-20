@@ -12,30 +12,70 @@ import { stringify } from "querystring";
 import parseEnvironment from "./parse-environment";
 import axios, { AxiosInstance } from "axios";
 
-class MyAdapter implements Adapter {
-  /**
-   * TODO: Fetch contacts from the contacts provider using config.apiKey and config.apiUrl or throw on error
-   */
+import { mapToClinqContact } from "./utils/mapper";
+
+class VincereAdapter implements Adapter {
   public async getContacts(config: Config): Promise<Contact[]> {
-    const phoneNumber: PhoneNumber = {
-      label: PhoneNumberLabel.MOBILE,
-      phoneNumber: "+4915799912345",
-    };
-    const contact: Contact = {
-      id: "7f23375d-35e2-4034-889a-2bdc9cba9633",
-      name: null,
-      firstName: "Max",
-      lastName: "Mustermann",
-      email: "mustermann@example.com",
-      organization: "MyCompany GmbH",
-      contactUrl:
-        "https://www.example.com/contact/7f23375d-35e2-4034-889a-2bdc9cba9633",
-      avatarUrl:
-        "https://www.example.com/contact/7f23375d-35e2-4034-889a-2bdc9cba9633/avatar.png",
-      phoneNumbers: [phoneNumber],
-    };
-    const contacts: Contact[] = await Promise.resolve([contact]);
+    const contacts: Contact[] = [];
+    let startIndex: number = 0;
+    const contactCount = await this.fetchContacts(config, contacts, startIndex);
+    // more than 100 contacts (=max data sclice sice for search endpoint of vincere) => repeat until fetched all, but max 10x times
+    while (contacts.length < contactCount && startIndex < 1000) {
+      startIndex += 100;
+      await this.fetchContacts(config, contacts, startIndex);
+    }
     return contacts;
+  }
+
+  private async fetchContacts(
+    config: Config,
+    contacts: Contact[],
+    startIndex: number = 0
+  ) {
+    const { clientId, apiUrl, clientSecret } = parseEnvironment();
+    const vincereContactsResponse = await axios.get(
+      config.apiUrl +
+        "/contact/search/fl=id,name,email,company,photo,phone,mobile;sort=created_date desc",
+      {
+        headers: {
+          "x-api-key": clientId,
+          "id-token": config.apiKey,
+        },
+        params: {
+          start: startIndex,
+          limit: 100,
+        },
+      }
+    );
+    const contactCount: number = vincereContactsResponse.data.result.total;
+    for (const vincereContact of vincereContactsResponse.data.result.items) {
+      const clinqContact: Contact = mapToClinqContact(vincereContact);
+      const vincereContactUrlResponse = await axios.get(
+        config.apiUrl +
+          "contact/{id}/webapp/url".replace("{id}", clinqContact.id),
+        {
+          headers: {
+            "x-api-key": clientId,
+            "id-token": config.apiKey,
+          },
+        }
+      );
+      clinqContact.contactUrl = vincereContactUrlResponse.data.url;
+      const vincereContactPhotoResponse = await axios.get(
+        config.apiUrl + "/contact/{id}/photo".replace("{id}", clinqContact.id),
+        {
+          headers: {
+            "x-api-key": clientId,
+            "id-token": config.apiKey,
+          },
+        }
+      );
+      if (vincereContactPhotoResponse.data.filename) {
+        clinqContact.avatarUrl = vincereContactPhotoResponse.data.url;
+      }
+      contacts.push(clinqContact);
+    }
+    return contactCount;
   }
 
   /**
@@ -44,7 +84,7 @@ class MyAdapter implements Adapter {
    * Users will be redirected here to authorize CLINQ.
    */
   public async getOAuth2RedirectUrl(): Promise<string> {
-    const { clientId, redirectUri } = parseEnvironment();
+    const { clientId, apiUrl, clientSecret } = parseEnvironment();
     const query = {
       response_type: "code",
       client_id: clientId,
@@ -64,7 +104,7 @@ class MyAdapter implements Adapter {
   public async handleOAuth2Callback(
     req: Request
   ): Promise<{ apiKey: string; apiUrl: string }> {
-    const { clientId } = parseEnvironment();
+    const { clientId, apiUrl, clientSecret } = parseEnvironment();
 
     const requestParams = stringify({
       grant_type: "authorization_code",
@@ -82,10 +122,10 @@ class MyAdapter implements Adapter {
       }
     );
     return Promise.resolve({
-      apiKey: data.data.access_token,
-      apiUrl: "https://api.vincere.io/api/v2/",
+      apiKey: data.data.id_token,
+      apiUrl: apiUrl!,
     });
   }
 }
 
-start(new MyAdapter());
+start(new VincereAdapter());
