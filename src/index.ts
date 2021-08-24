@@ -3,37 +3,57 @@ import axios from "axios";
 import { Request } from "express";
 import { stringify } from "querystring";
 import parseEnvironment, { EnvConfig } from "./parse-environment";
-import { mapToClinqContact } from "./utils/mapper";
+import {mapVincereCandidateToClinqContact, mapVincereContactToClinqContact} from "./utils/mapper";
 import { VincereOAuthResponse } from "./vincere.model";
+import {infoLogger} from "./utils/logger";
 
-const anonymizeKey = (apiKey: string) =>
-  `******${apiKey.substr(apiKey.length - 10)}`;
 
 class VincereAdapter implements Adapter {
+
   public async getContacts(config: Config): Promise<Contact[]> {
     const envConfig = parseEnvironment();
+    infoLogger(envConfig.clientId, `Fetching vincere candidates and contacts and converting them to clinq contacts`);
+    const candidates: Contact[] = await this.fetchAllVincereCandidates(config, envConfig);
+    const contacts: Contact[] = await this.fetchAllVincereContacts(config, envConfig);
+    infoLogger(envConfig.clientId, `Successfully fetched ${candidates.length + contacts.length} ' + 
+    'vincere contacts: ${candidates.length} vincere candidates and ${contacts.length} vincere contacts`);
+    return [...candidates, ...contacts];
+  }
 
-    console.log(`Fetching contacts for ${anonymizeKey(envConfig.clientId)}`);
-
+  private async fetchAllVincereContacts(config: Config, envConfig: EnvConfig): Promise<Contact[]> {
     const contacts: Contact[] = [];
     let startIndex: number = 0;
     const contactCount = await this.fetchContacts(
-      config,
-      contacts,
-      startIndex,
-      envConfig
+        config,
+        contacts,
+        startIndex,
+        envConfig
     );
-    // more than 100 contacts (=max data sclice sice for search endpoint of vincere) => repeat until fetched all, but max 10x times
+    // more than 100 contacts (=max data sclice sice for search endpoint of vincere) => repeat until fetched all
     while (contacts.length < contactCount) {
       startIndex += 100;
       await this.fetchContacts(config, contacts, startIndex, envConfig);
     }
-    console.log(
-      `Successfully fetched ${contacts.length} contacts for ${anonymizeKey(
-        envConfig.clientId
-      )}`
-    );
+    infoLogger(envConfig.clientId, `Successfully fetched ${contacts.length} vincere contacts`);
     return contacts;
+  }
+
+  private async fetchAllVincereCandidates(config: Config, envConfig: EnvConfig): Promise<Contact[]>{
+    const candidates: Contact[] = [];
+    let startIndex: number = 0;
+    const candidateCount = await this.fetchCandidates(
+        config,
+        candidates,
+        startIndex,
+        envConfig
+    );
+    // more than 100 contacts (=max data sclice sice for search endpoint of vincere) => repeat until fetched all
+    while (candidates.length < candidateCount) {
+      startIndex += 100;
+      await this.fetchCandidates(config, candidates, startIndex, envConfig);
+    }
+    infoLogger(envConfig.clientId, `Successfully fetched ${candidates.length} vincere candidates`);
+    return candidates;
   }
 
   private async fetchContacts(
@@ -49,12 +69,9 @@ class VincereAdapter implements Adapter {
 
     const vincereContactsResponse = await axios.get(
       envConfig.apiUrl +
-        "/contact/search/fl=id,name,email,company,photo,phone,mobile;sort=created_date desc",
+        "/contact/search/fl=id,name,email,company,phone,mobile;sort=created_date desc",
       {
-        headers: {
-          "x-api-key": envConfig.clientId,
-          "id-token": config.apiKey,
-        },
+        headers,
         params: {
           start: startIndex,
           limit: 100,
@@ -63,45 +80,69 @@ class VincereAdapter implements Adapter {
     );
     const contactCount: number = vincereContactsResponse.data.result.total;
     for (const vincereContact of vincereContactsResponse.data.result.items) {
-      const clinqContact: Contact = mapToClinqContact(vincereContact);
+      const clinqContact: Contact = mapVincereContactToClinqContact(vincereContact);
       const vincereContactUrlResponse = await axios.get(
         envConfig.apiUrl +
-          "contact/{id}/webapp/url".replace("{id}", clinqContact.id),
-        {
-          headers: {
-            "x-api-key": envConfig.clientId,
-            "id-token": config.apiKey,
-          },
-        }
+          "/contact/{id}/webapp/url".replace("{id}", clinqContact.id),{headers}
       );
-      clinqContact.contactUrl = vincereContactUrlResponse.data.url
-        ? `${vincereContactUrlResponse.data.url}`
-        : "";
+      clinqContact.contactUrl = vincereContactUrlResponse.data.url;
       const vincereContactPhotoResponse = await axios.get(
         envConfig.apiUrl +
-          "/contact/{id}/photo".replace("{id}", clinqContact.id),
-        {
-          headers: {
-            "x-api-key": envConfig.clientId,
-            "id-token": config.apiKey,
-          },
-        }
+          "/contact/{id}/photo".replace("{id}", clinqContact.id), {headers}
       );
-      if (vincereContactPhotoResponse.data.filename) {
-        clinqContact.avatarUrl = vincereContactPhotoResponse.data.url
-          ? `${vincereContactPhotoResponse.data.url}`
-          : "";
+      if (vincereContactPhotoResponse.data.file_name) {
+        clinqContact.avatarUrl = vincereContactPhotoResponse.data.url;
       }
       contacts.push(clinqContact);
     }
 
-    console.log(
-      `Fetched contacts (${contacts.length}/${contactCount}) for ${anonymizeKey(
-        envConfig.clientId
-      )}`
-    );
+    infoLogger(envConfig.clientId, `Fetched contacts (${contacts.length}/${contactCount})`);
 
     return contactCount;
+  }
+
+
+  private async fetchCandidates(
+      config: Config,
+      contacts: Contact[],
+      startIndex: number = 0,
+      envConfig: EnvConfig
+  ) {
+    const headers = {
+      "x-api-key": envConfig.clientId,
+      "id-token": config.apiKey,
+    };
+
+    const vincereCandidateResponse = await axios.get(
+        envConfig.apiUrl +
+        "/candidate/search/fl=id,name,primary_email,phone,mobile;sort=created_date desc",
+        {
+          headers,
+          params: {
+            start: startIndex,
+            limit: 100,
+          },
+        }
+    );
+    const candidateCount: number = vincereCandidateResponse.data.result.total;
+    for (const vincereCandidate of vincereCandidateResponse.data.result.items) {
+      const clinqContact: Contact = mapVincereCandidateToClinqContact(vincereCandidate);
+      const vincereCandidateUrlResponse = await axios.get(
+          envConfig.apiUrl +
+          "/candidate/{id}/webapp/url".replace("{id}", clinqContact.id),{headers}
+      );
+      clinqContact.contactUrl = vincereCandidateUrlResponse.data.url;
+      const vincereCandidateDetailsResponse = await axios.get(
+          envConfig.apiUrl +
+          "/candidate/{id}/".replace("{id}", clinqContact.id),{headers}
+      );
+      clinqContact.avatarUrl = vincereCandidateDetailsResponse.data.photo_url;
+      contacts.push(clinqContact);
+    }
+
+    infoLogger(envConfig.clientId, `Fetched candidates (${contacts.length}/${candidateCount})`);
+
+    return candidateCount;
   }
 
   /**
