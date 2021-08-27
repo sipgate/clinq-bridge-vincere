@@ -12,3 +12,8 @@ yarn-error.log
 #TypeScript
 dist/
 .env
+
+# Kubernetes
+k8s/secrets.yml
+k8s/prod.yml
+
