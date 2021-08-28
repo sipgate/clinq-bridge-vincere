@@ -6,69 +6,65 @@ import parseEnvironment, { EnvConfig } from "./parse-environment";
 import {mapVincereCandidateToClinqContact, mapVincereContactToClinqContact} from "./utils/mapper";
 import { VincereOAuthResponse } from "./vincere.model";
 import {infoLogger} from "./utils/logger";
+import {TokenInfo, isTokenValid} from "./utils/tokenMgm";
 
 
 class VincereAdapter implements Adapter {
 
+  private tokenCache:Map<string, TokenInfo> = new Map<string, TokenInfo>();
+  private envConfig: EnvConfig = parseEnvironment();
+
   public async getContacts(config: Config): Promise<Contact[]> {
-    const envConfig = parseEnvironment();
-    infoLogger(envConfig.clientId, `Fetching vincere candidates and contacts and converting them to clinq contacts`);
-    const candidates: Contact[] = await this.fetchAllVincereCandidates(config, envConfig);
-    const contacts: Contact[] = await this.fetchAllVincereContacts(config, envConfig);
-    infoLogger(envConfig.clientId, `Successfully fetched ${candidates.length + contacts.length} ' + 
+    infoLogger(this.envConfig.clientId, `Fetching vincere candidates and contacts and converting them to clinq contacts`);
+    const candidates: Contact[] = await this.fetchAllVincereCandidates(config);
+    const contacts: Contact[] = await this.fetchAllVincereContacts(config);
+    infoLogger(this.envConfig.clientId, `Successfully fetched ${candidates.length + contacts.length} ' + 
     'vincere contacts: ${candidates.length} vincere candidates and ${contacts.length} vincere contacts`);
     return [...candidates, ...contacts];
   }
 
-  private async fetchAllVincereContacts(config: Config, envConfig: EnvConfig): Promise<Contact[]> {
+  private async fetchAllVincereContacts(config: Config): Promise<Contact[]> {
     const contacts: Contact[] = [];
     let startIndex: number = 0;
     const contactCount = await this.fetchContacts(
         config,
         contacts,
-        startIndex,
-        envConfig
+        startIndex
     );
     // more than 100 contacts (=max data sclice sice for search endpoint of vincere) => repeat until fetched all
     while (contacts.length < contactCount) {
       startIndex += 100;
-      await this.fetchContacts(config, contacts, startIndex, envConfig);
+      await this.fetchContacts(config, contacts, startIndex);
     }
-    infoLogger(envConfig.clientId, `Successfully fetched ${contacts.length} vincere contacts`);
+    infoLogger(this.envConfig.clientId, `Successfully fetched ${contacts.length} vincere contacts`);
     return contacts;
   }
 
-  private async fetchAllVincereCandidates(config: Config, envConfig: EnvConfig): Promise<Contact[]>{
+  private async fetchAllVincereCandidates(config: Config): Promise<Contact[]>{
     const candidates: Contact[] = [];
     let startIndex: number = 0;
     const candidateCount = await this.fetchCandidates(
         config,
         candidates,
-        startIndex,
-        envConfig
+        startIndex
     );
     // more than 100 contacts (=max data sclice sice for search endpoint of vincere) => repeat until fetched all
     while (candidates.length < candidateCount) {
       startIndex += 100;
-      await this.fetchCandidates(config, candidates, startIndex, envConfig);
+      await this.fetchCandidates(config, candidates, startIndex);
     }
-    infoLogger(envConfig.clientId, `Successfully fetched ${candidates.length} vincere candidates`);
+    infoLogger(this.envConfig.clientId, `Successfully fetched ${candidates.length} vincere candidates`);
     return candidates;
   }
 
   private async fetchContacts(
     config: Config,
     contacts: Contact[],
-    startIndex: number = 0,
-    envConfig: EnvConfig
+    startIndex: number = 0
   ) {
-    const headers = {
-      "x-api-key": envConfig.clientId,
-      "id-token": config.apiKey,
-    };
-
+    const headers = await this.getFreshApiKey(config);
     const vincereContactsResponse = await axios.get(
-      envConfig.apiUrl +
+      this.envConfig.apiUrl +
         "/contact/search/fl=id,name,email,company,phone,mobile;sort=created_date desc",
       {
         headers,
@@ -82,12 +78,12 @@ class VincereAdapter implements Adapter {
     for (const vincereContact of vincereContactsResponse.data.result.items) {
       const clinqContact: Contact = mapVincereContactToClinqContact(vincereContact);
       const vincereContactUrlResponse = await axios.get(
-        envConfig.apiUrl +
+        this.envConfig.apiUrl +
           "/contact/{id}/webapp/url".replace("{id}", clinqContact.id),{headers}
       );
       clinqContact.contactUrl = vincereContactUrlResponse.data.url;
       const vincereContactPhotoResponse = await axios.get(
-        envConfig.apiUrl +
+        this.envConfig.apiUrl +
           "/contact/{id}/photo".replace("{id}", clinqContact.id), {headers}
       );
       if (vincereContactPhotoResponse.data.file_name) {
@@ -95,26 +91,19 @@ class VincereAdapter implements Adapter {
       }
       contacts.push(clinqContact);
     }
-
-    infoLogger(envConfig.clientId, `Fetched contacts (${contacts.length}/${contactCount})`);
-
+    infoLogger(this.envConfig.clientId, `Fetched contacts (${contacts.length}/${contactCount})`);
     return contactCount;
   }
-
 
   private async fetchCandidates(
       config: Config,
       contacts: Contact[],
-      startIndex: number = 0,
-      envConfig: EnvConfig
+      startIndex: number = 0
   ) {
-    const headers = {
-      "x-api-key": envConfig.clientId,
-      "id-token": config.apiKey,
-    };
 
+    const headers = await this.getFreshApiKey(config);
     const vincereCandidateResponse = await axios.get(
-        envConfig.apiUrl +
+        this.envConfig.apiUrl +
         "/candidate/search/fl=id,name,primary_email,phone,mobile;sort=created_date desc",
         {
           headers,
@@ -128,19 +117,19 @@ class VincereAdapter implements Adapter {
     for (const vincereCandidate of vincereCandidateResponse.data.result.items) {
       const clinqContact: Contact = mapVincereCandidateToClinqContact(vincereCandidate);
       const vincereCandidateUrlResponse = await axios.get(
-          envConfig.apiUrl +
+          this.envConfig.apiUrl +
           "/candidate/{id}/webapp/url".replace("{id}", clinqContact.id),{headers}
       );
       clinqContact.contactUrl = vincereCandidateUrlResponse.data.url;
       const vincereCandidateDetailsResponse = await axios.get(
-          envConfig.apiUrl +
+          this.envConfig.apiUrl +
           "/candidate/{id}/".replace("{id}", clinqContact.id),{headers}
       );
       clinqContact.avatarUrl = vincereCandidateDetailsResponse.data.photo_url;
       contacts.push(clinqContact);
     }
 
-    infoLogger(envConfig.clientId, `Fetched candidates (${contacts.length}/${candidateCount})`);
+    infoLogger(this.envConfig.clientId, `Fetched candidates (${contacts.length}/${candidateCount})`);
 
     return candidateCount;
   }
@@ -171,15 +160,14 @@ class VincereAdapter implements Adapter {
   public async handleOAuth2Callback(
     req: Request
   ): Promise<{ apiKey: string; apiUrl: string }> {
-    const envConfig = parseEnvironment();
 
     const requestParams = stringify({
       grant_type: "authorization_code",
       code: req.query.code?.toString(),
-      client_id: envConfig.clientId,
+      client_id: this.envConfig.clientId,
     });
 
-    const data = await axios.post<VincereOAuthResponse>(
+    const oauthResponse = await axios.post<VincereOAuthResponse>(
       "https://id.vincere.io/oauth2/token",
       requestParams,
       {
@@ -188,10 +176,53 @@ class VincereAdapter implements Adapter {
         },
       }
     );
-    return Promise.resolve({
-      apiKey: data.data.id_token,
-      apiUrl: envConfig.apiUrl,
+    const apiKey: string = `${oauthResponse.data.id_token}:${oauthResponse.data.refresh_token}`;
+    this.tokenCache.set(apiKey, {
+      token: oauthResponse.data.id_token,
+      expiresIn: oauthResponse.data.expires_in,
+      updatedAt: Date.now()
     });
+    return Promise.resolve({
+      apiKey,
+      apiUrl: this.envConfig.apiUrl,
+    });
+  }
+
+  private async getFreshApiKey(config: Config) {
+    const [idToken, refreshToken] = config.apiKey.split(":");
+    if (!isTokenValid(config.apiKey, this.tokenCache)) {
+      infoLogger(idToken, `Refreshing api access token`);
+      const requestParams = stringify({
+        grant_type: "refresh_token",
+        refresh_token: refreshToken,
+        client_id: this.envConfig.clientId,
+      });
+      const oauthResponse = await axios.post<VincereOAuthResponse>(
+          "https://id.vincere.io/oauth2/token",
+          requestParams,
+          {
+            headers: {
+              "Content-Type": "application/x-www-form-urlencoded",
+            },
+          }
+      );
+      this.tokenCache.set(config.apiKey, {
+        token: oauthResponse.data.id_token,
+        expiresIn: oauthResponse.data.expires_in,
+        updatedAt: Date.now()
+      });
+      return {
+        "x-api-key": this.envConfig.clientId,
+        "id-token": oauthResponse.data.id_token
+      };
+    }
+    else {
+      infoLogger(idToken, `Api access token is fresh enough`);
+      return {
+        "x-api-key": this.envConfig.clientId,
+        "id-token": this.tokenCache.get(config.apiKey)?.token
+      };
+    }
   }
 }
 
