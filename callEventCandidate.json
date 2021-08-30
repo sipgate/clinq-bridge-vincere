@@ -1,0 +1,14 @@
+{
+  "id": "42",
+  "direction": "OUT",
+  "from": "49285950456",
+  "to": "4915799912345",
+  "start": 1553259851889,
+  "end": 1553259851989,
+  "user": {
+    "id": "42",
+    "firstName": "Jane",
+    "lastName": "Doe",
+    "email": "jane@example.com"
+  }
+}

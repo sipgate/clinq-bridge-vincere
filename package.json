@@ -1,17 +1,13 @@
 {
-  "name": "clinq-bridge-boilerplate",
+  "name": "clinq-bridge-vincere",
   "version": "1.0.0",
-  "description": "Boilerplate project to bootstrap a new CLINQ Bridge",
+  "description": "Integration of vincere.io",
   "main": "dist/index.js",
-  "repository": "git@github.com:sipgate/clinq-bridge-boilerplate.git",
+  "repository": "git@github.com:codeshiprepeat/clinq-bridge-vincere.git",
   "contributors": [
     {
-      "name": "Benjamin Kluck",
-      "email": "ben@fug.lu"
-    },
-    {
-      "name": "Felix Gladisch",
-      "email": "felix@felixgladisch.de"
+      "name": "Siavash Sefid Rodi",
+      "email": "siavash.sefidrodi@csr-informatik.de"
     }
   ],
   "license": "Apache-2.0",
@@ -28,7 +24,8 @@
     "env-cmd": "^10.1.0",
     "express": "^4.17.1",
     "typescript": "^4.3.5",
-    "google-libphonenumber": "^3.2.22"
+    "google-libphonenumber": "^3.2.22",
+    "moment": "^2.29.1"
   },
   "devDependencies": {
     "husky": "^7.0.1",

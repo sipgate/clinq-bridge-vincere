@@ -1,18 +1,66 @@
-import { Adapter, Config, Contact, start } from "@clinq/bridge";
+import { Adapter, Config, Contact, start, CallEvent, CallDirection } from "@clinq/bridge";
 import axios from "axios";
 import { Request } from "express";
 import { stringify } from "querystring";
 import parseEnvironment, { EnvConfig } from "./parse-environment";
-import {mapVincereCandidateToClinqContact, mapVincereContactToClinqContact} from "./utils/mapper";
+import {
+  mapCallEventToDescription,
+  mapVincereCandidateToClinqContact,
+  mapVincereContactToClinqContact
+} from "./utils/mapper";
 import { VincereOAuthResponse } from "./vincere.model";
 import {infoLogger} from "./utils/logger";
 import {TokenInfo, isTokenValid} from "./utils/tokenMgm";
-
+import * as moment from 'moment';
 
 class VincereAdapter implements Adapter {
 
   private tokenCache:Map<string, TokenInfo> = new Map<string, TokenInfo>();
   private envConfig: EnvConfig = parseEnvironment();
+
+  public async handleCallEvent(config: Config, event: CallEvent): Promise<void> {
+    infoLogger(this.envConfig.clientId, `Processing call event`);
+    const phoneNumber = event.direction === CallDirection.OUT ? event.to : event.from;
+    // first check if number is from contacts
+    let vincereResponse = await axios.get(
+        this.envConfig.apiUrl + `/contact/search/fl=id;?q=phone:${phoneNumber}%23`,
+        {headers: await this.getFreshToken(config)}
+    );
+    if (vincereResponse.data.result.total > 0){
+      infoLogger(this.envConfig.clientId, "Found vincere contact, creating comment in vincere")
+      const commentData = {
+        contact_ids:[vincereResponse.data.result.items[0].id],
+        category_ids:[4], // category id 4 = "Phone Call "
+        content: mapCallEventToDescription(event),
+        insert_timestamp: (moment.utc(new Date(event.start))).format('YYYY-MM-DDTHH:mm:ss.SSS[Z]'),
+        kpi_action_id: "5", // kpi_action_id 5 = "Client BD Phone Call", https://api.vincere.io/#operation/getActivityCategories
+        main_entity_type: "CONTACT"
+      }
+      await axios.post(this.envConfig.apiUrl + `/activity/comment`, commentData, {headers: await this.getFreshToken(config)});
+    }
+    else {
+      // number is not from contacts -> check candidates
+      vincereResponse = await axios.get(
+          this.envConfig.apiUrl + `/candidate/search/fl=id;?q=phone:${phoneNumber}%23`,
+          {headers: await this.getFreshToken(config)}
+      );
+      if (vincereResponse.data.result.total > 0){
+        infoLogger(this.envConfig.clientId, "Found vincere candidate, creating comment in vincere")
+        const commentData = {
+          candidate_ids:[vincereResponse.data.result.items[0].id],
+          category_ids:[4], // category id 4 = "Phone Call "
+          content: mapCallEventToDescription(event),
+          insert_timestamp: (moment.utc(new Date(event.start))).format('YYYY-MM-DDTHH:mm:ss.SSS[Z]'),
+          kpi_action_id: "60", // kpi_action_id 60 = "Candidate Meeting", https://api.vincere.io/#operation/getActivityCategories
+          main_entity_type: "CANDIDATE"
+        }
+        await axios.post(this.envConfig.apiUrl + `/activity/comment`, commentData, {headers: await this.getFreshToken(config)});
+      }
+      else {
+        infoLogger(this.envConfig.clientId, "Found no vincere candidate nor contact for given phone number, doing nothing")
+      }
+    }
+  }
 
   public async getContacts(config: Config): Promise<Contact[]> {
     infoLogger(this.envConfig.clientId, `Fetching vincere candidates and contacts and converting them to clinq contacts`);
@@ -62,12 +110,11 @@ class VincereAdapter implements Adapter {
     contacts: Contact[],
     startIndex: number = 0
   ) {
-    const headers = await this.getFreshApiKey(config);
     const vincereContactsResponse = await axios.get(
       this.envConfig.apiUrl +
         "/contact/search/fl=id,name,email,company,phone,mobile;sort=created_date desc",
       {
-        headers,
+        headers: await this.getFreshToken(config),
         params: {
           start: startIndex,
           limit: 100,
@@ -79,12 +126,12 @@ class VincereAdapter implements Adapter {
       const clinqContact: Contact = mapVincereContactToClinqContact(vincereContact);
       const vincereContactUrlResponse = await axios.get(
         this.envConfig.apiUrl +
-          "/contact/{id}/webapp/url".replace("{id}", clinqContact.id),{headers}
+          "/contact/{id}/webapp/url".replace("{id}", clinqContact.id),{headers: await this.getFreshToken(config)}
       );
       clinqContact.contactUrl = vincereContactUrlResponse.data.url;
       const vincereContactPhotoResponse = await axios.get(
         this.envConfig.apiUrl +
-          "/contact/{id}/photo".replace("{id}", clinqContact.id), {headers}
+          "/contact/{id}/photo".replace("{id}", clinqContact.id), {headers: await this.getFreshToken(config),}
       );
       if (vincereContactPhotoResponse.data.file_name) {
         clinqContact.avatarUrl = vincereContactPhotoResponse.data.url;
@@ -100,13 +147,11 @@ class VincereAdapter implements Adapter {
       contacts: Contact[],
       startIndex: number = 0
   ) {
-
-    const headers = await this.getFreshApiKey(config);
     const vincereCandidateResponse = await axios.get(
         this.envConfig.apiUrl +
         "/candidate/search/fl=id,name,primary_email,phone,mobile;sort=created_date desc",
         {
-          headers,
+          headers: await this.getFreshToken(config),
           params: {
             start: startIndex,
             limit: 100,
@@ -118,12 +163,12 @@ class VincereAdapter implements Adapter {
       const clinqContact: Contact = mapVincereCandidateToClinqContact(vincereCandidate);
       const vincereCandidateUrlResponse = await axios.get(
           this.envConfig.apiUrl +
-          "/candidate/{id}/webapp/url".replace("{id}", clinqContact.id),{headers}
+          "/candidate/{id}/webapp/url".replace("{id}", clinqContact.id),{headers: await this.getFreshToken(config)}
       );
       clinqContact.contactUrl = vincereCandidateUrlResponse.data.url;
       const vincereCandidateDetailsResponse = await axios.get(
           this.envConfig.apiUrl +
-          "/candidate/{id}/".replace("{id}", clinqContact.id),{headers}
+          "/candidate/{id}/".replace("{id}", clinqContact.id),{headers: await this.getFreshToken(config),}
       );
       clinqContact.avatarUrl = vincereCandidateDetailsResponse.data.photo_url;
       contacts.push(clinqContact);
@@ -167,15 +212,7 @@ class VincereAdapter implements Adapter {
       client_id: this.envConfig.clientId,
     });
 
-    const oauthResponse = await axios.post<VincereOAuthResponse>(
-      "https://id.vincere.io/oauth2/token",
-      requestParams,
-      {
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-        },
-      }
-    );
+    const oauthResponse = await axios.post<VincereOAuthResponse>("https://id.vincere.io/oauth2/token",requestParams);
     const apiKey: string = `${oauthResponse.data.id_token}:${oauthResponse.data.refresh_token}`;
     this.tokenCache.set(apiKey, {
       token: oauthResponse.data.id_token,
@@ -188,7 +225,7 @@ class VincereAdapter implements Adapter {
     });
   }
 
-  private async getFreshApiKey(config: Config) {
+  private async getFreshToken(config: Config) {
     const [idToken, refreshToken] = config.apiKey.split(":");
     if (!isTokenValid(config.apiKey, this.tokenCache)) {
       infoLogger(idToken, `Refreshing api access token`);
@@ -197,15 +234,7 @@ class VincereAdapter implements Adapter {
         refresh_token: refreshToken,
         client_id: this.envConfig.clientId,
       });
-      const oauthResponse = await axios.post<VincereOAuthResponse>(
-          "https://id.vincere.io/oauth2/token",
-          requestParams,
-          {
-            headers: {
-              "Content-Type": "application/x-www-form-urlencoded",
-            },
-          }
-      );
+      const oauthResponse = await axios.post<VincereOAuthResponse>("https://id.vincere.io/oauth2/token",requestParams);
       this.tokenCache.set(config.apiKey, {
         token: oauthResponse.data.id_token,
         expiresIn: oauthResponse.data.expires_in,
