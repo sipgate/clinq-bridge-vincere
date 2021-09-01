@@ -8,7 +8,6 @@ import {
   mapVincereCandidateToClinqContact,
   mapVincereContactToClinqContact
 } from "./utils/mapper";
-import { VincereOAuthResponse } from "./vincere.model";
 import {infoLogger} from "./utils/logger";
 import {TokenInfo, isTokenValid} from "./utils/tokenMgm";
 import * as moment from 'moment';
@@ -66,8 +65,8 @@ class VincereAdapter implements Adapter {
     infoLogger(this.envConfig.clientId, `Fetching vincere candidates and contacts and converting them to clinq contacts`);
     const candidates: Contact[] = await this.fetchAllVincereCandidates(config);
     const contacts: Contact[] = await this.fetchAllVincereContacts(config);
-    infoLogger(this.envConfig.clientId, `Successfully fetched ${candidates.length + contacts.length} ' + 
-    'vincere contacts: ${candidates.length} vincere candidates and ${contacts.length} vincere contacts`);
+    infoLogger(this.envConfig.clientId, `Successfully fetched ${candidates.length + contacts.length} ` +
+        `entries: ${candidates.length} vincere candidates and ${contacts.length} vincere contacts`);
     return [...candidates, ...contacts];
   }
 
@@ -212,7 +211,7 @@ class VincereAdapter implements Adapter {
       client_id: this.envConfig.clientId,
     });
 
-    const oauthResponse = await axios.post<VincereOAuthResponse>("https://id.vincere.io/oauth2/token",requestParams);
+    const oauthResponse = await axios.post("https://id.vincere.io/oauth2/token",requestParams);
     const apiKey: string = `${oauthResponse.data.id_token}:${oauthResponse.data.refresh_token}`;
     this.tokenCache.set(apiKey, {
       token: oauthResponse.data.id_token,
@@ -234,7 +233,7 @@ class VincereAdapter implements Adapter {
         refresh_token: refreshToken,
         client_id: this.envConfig.clientId,
       });
-      const oauthResponse = await axios.post<VincereOAuthResponse>("https://id.vincere.io/oauth2/token",requestParams);
+      const oauthResponse = await axios.post("https://id.vincere.io/oauth2/token",requestParams);
       this.tokenCache.set(config.apiKey, {
         token: oauthResponse.data.id_token,
         expiresIn: oauthResponse.data.expires_in,
@@ -246,7 +245,6 @@ class VincereAdapter implements Adapter {
       };
     }
     else {
-      infoLogger(idToken, `Api access token is fresh enough`);
       return {
         "x-api-key": this.envConfig.clientId,
         "id-token": this.tokenCache.get(config.apiKey)?.token

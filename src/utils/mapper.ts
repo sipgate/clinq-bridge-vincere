@@ -2,8 +2,6 @@ import {CallDirection, CallEvent, Contact, PhoneNumber, PhoneNumberLabel} from "
 import * as moment from "moment";
 import {sanitizePhonenumber} from "./phone-numbers";
 
-
-
 export const mapVincereContactToClinqContact = (vincereContactItem: any) => {
   const phoneNumbers: PhoneNumber[] = [];
   if (vincereContactItem.phone) {
