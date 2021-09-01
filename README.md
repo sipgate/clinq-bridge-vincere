@@ -25,7 +25,7 @@ https://id.vincere.io/oauth2/authorize?response_type=code&client_id=<CLIENT_ID>&
 
 Replace the values in the link:
 
-CLIENT_ID = Your vincere.io Client ID, contact the vincere.io support to get yours
+CLIENT_ID = Your vincere.io Client ID, contact the vincere.io support to get yours  
 REDIRECT_URI = The sipgate oauth callback uri, http://localhost:8080/oauth2/callback for local development
 
 
