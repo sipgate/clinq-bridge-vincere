@@ -1,0 +1,4 @@
+REDIS_URL_OFF
+clientId="<YourClientId>"
+clientSecret="<YourApiKey>"
+apiUrl="https://<YourDomain>.vincere.io/api/v2"
