@@ -17,7 +17,7 @@
     "lint": "tslint --project tsconfig.json"
   },
   "dependencies": {
-    "@clinq/bridge": "^11.3.1",
+    "@clinq/bridge": "^11.3.2",
     "@types/express": "^4.17.13",
     "@types/node": "^16.6.2",
     "@types/google-libphonenumber": "^7.4.21",

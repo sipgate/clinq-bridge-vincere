@@ -1,4 +1,4 @@
-import { Adapter, Config, Contact, start, CallEvent, CallDirection } from "@clinq/bridge";
+import { Adapter, Config, Contact, start, CallEvent, CallDirection, OAuthURLConfig } from "@clinq/bridge";
 import axios from "axios";
 import { Request } from "express";
 import { stringify } from "querystring";
@@ -183,8 +183,9 @@ class VincereAdapter implements Adapter {
    * Return the redirect URL for the given contacts provider.
    * Users will be redirected here to authorize CLINQ.
    */
-  public async getOAuth2RedirectUrl(): Promise<string> {
+  public async getOAuth2RedirectUrl(config?: OAuthURLConfig): Promise<string> {
     const envConfig = parseEnvironment();
+    // TODO: Resolve correct Vincere config based on OAuthUrlConfig
     const query = {
       response_type: "code",
       client_id: envConfig.clientId,
