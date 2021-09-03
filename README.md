@@ -5,7 +5,10 @@ This service provides vincere contacts for CLINQ.
 The vincere API authentication process is described [here](https://api.vincere.io/#section/Step-by-Step-Vincere-API-Authentication-Process) 
 
 The vincere data model is described [here](https://api.vincere.io/#section/Vincere-Data-Model-Concept).
-The distinction between candidates and contacts is important to understand the integration.
+The distinction between candidates and contacts in the data model of vincere is important to understand the integration. 
+Vincere has multiple entities, which can have phonenumbers: company, contact, candidate. We ignore the company entity in 
+the integration. A person calling can be a contact or candidate. If a contact and candidate has the same phonenumber, the contact 
+will be selected as match by our integration. 
 
 
 To run the integration you need to contact vincere and 
