@@ -2,7 +2,7 @@ import { Adapter, Config, Contact, start, CallEvent, CallDirection } from "@clin
 import axios from "axios";
 import { Request } from "express";
 import { stringify } from "querystring";
-import parseEnvironment, { EnvConfig } from "./parse-environment";
+import parseEnvironment, {EnvConfig, getClientId} from "./parse-environment";
 import {
   mapCallEventToDescription,
   mapVincereCandidateToClinqContact,
@@ -11,6 +11,7 @@ import {
 import {infoLogger} from "./utils/logger";
 import {TokenInfo, isTokenValid} from "./utils/tokenMgm";
 import * as moment from 'moment';
+import {vincereBridgeService, vincereIdService} from "./utils/constants";
 
 class VincereAdapter implements Adapter {
 
@@ -183,15 +184,21 @@ class VincereAdapter implements Adapter {
    * Return the redirect URL for the given contacts provider.
    * Users will be redirected here to authorize CLINQ.
    */
-  public async getOAuth2RedirectUrl(): Promise<string> {
+  public async getOAuth2RedirectUrl(user?: string, organization?: string): Promise<string> {
+
     const envConfig = parseEnvironment();
+
+    const clientId = getClientId(user || "", organization || "")?.clientId || "TESTCLIENT";
+
+
+    // FIXME: Replace with redirect uri scheme configured at vincere - this uri must contain the clientId
     const query = {
       response_type: "code",
-      client_id: envConfig.clientId,
-      redirect_uri: "http://localhost:8080/oauth2/callback",
+      client_id: clientId,
+      redirect_uri: `${vincereBridgeService}/oauth2/callback`,
       state: "",
     };
-    return `https://id.vincere.io/oauth2/authorize?${stringify(query)}`;
+    return `${vincereIdService}/oauth2/authorize?${stringify(query)}`;
   }
 
   /**
@@ -205,19 +212,29 @@ class VincereAdapter implements Adapter {
     req: Request
   ): Promise<{ apiKey: string; apiUrl: string }> {
 
+    // FIXME: Parse cliendId from request url
+    const clientID = "TESTCLIENT" || req.url;
+
+    // tslint:disable-next-line:no-console
+    console.log("request parameters", req.query.code);
+
     const requestParams = stringify({
       grant_type: "authorization_code",
       code: req.query.code?.toString(),
       client_id: this.envConfig.clientId,
     });
 
-    const oauthResponse = await axios.post("https://id.vincere.io/oauth2/token",requestParams);
-    const apiKey: string = `${oauthResponse.data.id_token}:${oauthResponse.data.refresh_token}`;
+    const oauthResponse = await axios.post(`${vincereIdService}/oauth2/token`, requestParams);
+
+    const apiKey: string = `${oauthResponse.data.id_token}:${oauthResponse.data.refresh_token}:${clientID}`;
     this.tokenCache.set(apiKey, {
       token: oauthResponse.data.id_token,
       expiresIn: oauthResponse.data.expires_in,
       updatedAt: Date.now()
     });
+
+    // tslint:disable-next-line:no-console
+    console.log("Resolving service");
     return Promise.resolve({
       apiKey,
       apiUrl: this.envConfig.apiUrl,
@@ -233,7 +250,7 @@ class VincereAdapter implements Adapter {
         refresh_token: refreshToken,
         client_id: this.envConfig.clientId,
       });
-      const oauthResponse = await axios.post("https://id.vincere.io/oauth2/token",requestParams);
+      const oauthResponse = await axios.post(`${vincereIdService}/oauth2/token`, requestParams);
       this.tokenCache.set(config.apiKey, {
         token: oauthResponse.data.id_token,
         expiresIn: oauthResponse.data.expires_in,
