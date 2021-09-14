@@ -201,9 +201,15 @@ class VincereAdapter implements Adapter {
       throw Error("no config provided");
     }
 
+    // tslint:disable-next-line:no-console
+    console.log("debug", config);
+
     const [apiKey, clientId] = config.key.split(":");
 
     const apiUrl: string = config.apiUrl;
+
+    // tslint:disable-next-line:no-console
+    console.log("debug", apiKey, clientId, apiUrl);
 
     const query = {
       response_type: "code",
