@@ -1,4 +1,4 @@
-import {Adapter, Config, Contact, start, CallEvent, CallDirection, OAuthURLConfig} from "@clinq/bridge";
+import { Adapter, Config, Contact, start, CallEvent, CallDirection, OAuthURLConfig } from "@clinq/bridge";
 import axios from "axios";
 import { Request } from "express";
 import { stringify } from "querystring";
@@ -196,7 +196,7 @@ class VincereAdapter implements Adapter {
    * Users will be redirected here to authorize CLINQ.
    */
   public async getOAuth2RedirectUrl(config?: OAuthURLConfig): Promise<string> {
-
+    
     if (!config) {
       throw Error("no config provided");
     }
