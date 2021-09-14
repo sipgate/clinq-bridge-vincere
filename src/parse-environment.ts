@@ -1,10 +1,8 @@
 export type EnvConfig = {
-  clientId: string;
-  apiUrl: string;
-  clientSecret: string;
+  redirectUrl: string;
 };
 
-const { clientId, apiUrl, clientSecret } = process.env;
+const { REDIRECT_URL } = process.env;
 
 interface IClientId {
   user: string;
@@ -18,18 +16,10 @@ export function getClientId(user: string, organization: string) : IClientId | nu
 }
 
 export default function parseEnvironment(): EnvConfig {
-  if (!clientId) {
+  if (!REDIRECT_URL) {
     throw new Error("Missing clientId in environment.");
   }
-  if (!apiUrl) {
-    throw new Error("Missing apiUrl in environment.");
-  }
-  if (!clientSecret) {
-    throw new Error("Missing clientSecret in environment.");
-  }
   return {
-    clientId,
-    apiUrl,
-    clientSecret,
+    redirectUrl: REDIRECT_URL
   };
 }
