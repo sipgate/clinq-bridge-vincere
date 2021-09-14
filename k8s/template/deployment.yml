@@ -47,5 +47,5 @@ spec:
               value: "3600"
             - name: REDIS_URL
               value: rediss://10.102.0.11:6378
-            - name: APP_WEB_URL
+            - name: REDIRECT_URL
               value: https://www.clinq.app/settings/integrations/oauth/callback
