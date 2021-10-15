@@ -202,7 +202,7 @@ class VincereAdapter implements Adapter {
     }
 
     // tslint:disable-next-line:no-console
-    console.log("debug", config);
+    console.log("debug ", config);
 
     const [apiKey, clientId] = config.key.split(":");
 
