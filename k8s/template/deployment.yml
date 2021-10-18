@@ -49,3 +49,5 @@ spec:
               value: rediss://10.102.0.11:6378
             - name: REDIRECT_URL
               value: https://vincere.bridge.clinq.com/oauth2/callback
+            - name: OAUTH_IDENTIFIER
+              value: VINCERE
