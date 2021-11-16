@@ -17,7 +17,7 @@ export function getClientId(user: string, organization: string) : IClientId | nu
 
 export default function parseEnvironment(): EnvConfig {
   if (!REDIRECT_URL) {
-    throw new Error("Missing clientId in environment.");
+    throw new Error("Missing redirect_url in environment.");
   }
   return {
     redirectUrl: REDIRECT_URL

@@ -4,36 +4,37 @@ import {sanitizePhonenumber} from "./phone-numbers";
 
 export const mapVincereContactToClinqContact = (vincereContactItem: any) => {
   const phoneNumbers: PhoneNumber[] = [];
+  // vincere primary number -> clinq work number
   if (vincereContactItem.phone) {
     phoneNumbers.push({
       label: PhoneNumberLabel.WORK,
-      phoneNumber: sanitizePhonenumber(vincereContactItem.phone[0]),
+      phoneNumber: sanitizePhonenumber(vincereContactItem.phone),
     });
   }
-  if (vincereContactItem.mobile) {
+  // vincere mobile number -> clinq mobile number
+  if (vincereContactItem.mobile_phone) {
     phoneNumbers.push({
       label: PhoneNumberLabel.MOBILE,
-      phoneNumber: sanitizePhonenumber(vincereContactItem.mobile[0]),
+      phoneNumber: sanitizePhonenumber(vincereContactItem.mobile_phone),
     });
   }
+  // vincere home number -> clinq mobile number
+  if (vincereContactItem.home_phone) {
+    phoneNumbers.push({
+      label: PhoneNumberLabel.HOME,
+      phoneNumber: sanitizePhonenumber(vincereContactItem.home_phone),
+    });
+  }
+  const first_name: string = vincereContactItem.first_name ? vincereContactItem.first_name.trim(): '';
+  const last_name: string = vincereContactItem.last_name ? vincereContactItem.last_name.trim(): '';
+  const name: string = (first_name + ' ' + last_name).trim();
   const contact: Contact = {
     id: `${vincereContactItem.id}`,
-    email: vincereContactItem.email ? vincereContactItem.email[0] : null,
-    name: vincereContactItem.name ? vincereContactItem.name : null,
-    firstName: vincereContactItem.name
-      ? vincereContactItem.name.split(" ")[0]
-      : null,
-    lastName: vincereContactItem.name
-      ? vincereContactItem.name
-          .split(" ")
-          .slice(1, vincereContactItem.name.split(" ").length)
-          .join(" ")
-      : null,
-    organization: vincereContactItem.company
-      ? vincereContactItem.company.name
-        ? vincereContactItem.company.name
-        : null
-      : null,
+    email: vincereContactItem.email ? vincereContactItem.email : null,
+    name: name ? name : null,
+    firstName: vincereContactItem.first_name ? vincereContactItem.first_name: null,
+    lastName: vincereContactItem.last_name ? vincereContactItem.last_name: null,
+    organization: null,
     contactUrl: "",
     avatarUrl: "",
     phoneNumbers,
@@ -45,8 +46,14 @@ export const mapVincereCandidateToClinqContact = (vincereCandidateItem: any) => 
   const phoneNumbers: PhoneNumber[] = [];
   if (vincereCandidateItem.phone) {
     phoneNumbers.push({
-      label: PhoneNumberLabel.WORK,
+      label: PhoneNumberLabel.HOME,
       phoneNumber: sanitizePhonenumber(vincereCandidateItem.phone),
+    });
+  }
+  if (vincereCandidateItem.work_phone) {
+    phoneNumbers.push({
+      label: PhoneNumberLabel.WORK,
+      phoneNumber: sanitizePhonenumber(vincereCandidateItem.work_phone),
     });
   }
   if (vincereCandidateItem.mobile) {
@@ -55,19 +62,15 @@ export const mapVincereCandidateToClinqContact = (vincereCandidateItem: any) => 
       phoneNumber: sanitizePhonenumber(vincereCandidateItem.mobile),
     });
   }
+  const first_name: string = vincereCandidateItem.first_name ? vincereCandidateItem.first_name.trim(): '';
+  const last_name: string = vincereCandidateItem.last_name ? vincereCandidateItem.last_name.trim(): '';
+  const name: string = (first_name + ' ' + last_name).trim();
   const contact: Contact = {
     id: `${vincereCandidateItem.id}`,
-    email: vincereCandidateItem.primary_email ? vincereCandidateItem.primary_email : null,
-    name: vincereCandidateItem.name ? vincereCandidateItem.name : null,
-    firstName: vincereCandidateItem.name
-        ? vincereCandidateItem.name.split(" ")[0]
-        : null,
-    lastName: vincereCandidateItem.name
-        ? vincereCandidateItem.name
-            .split(" ")
-            .slice(1, vincereCandidateItem.name.split(" ").length)
-            .join(" ")
-        : null,
+    email: vincereCandidateItem.email ? vincereCandidateItem.email : null,
+    name: name ? name: null,
+    firstName: vincereCandidateItem.first_name ? vincereCandidateItem.first_name: null,
+    lastName: vincereCandidateItem.last_name ? vincereCandidateItem.last_name : null,
     organization: null,
     contactUrl: "",
     avatarUrl: "",

@@ -114,12 +114,11 @@ class VincereAdapter implements Adapter {
     startIndex: number = 0
   ) {
     const userConfig: UserConfig = getUserConfig(config.apiKey);
-
     const freshToken = await this.getFreshToken(config);
 
     const vincereContactsResponse = await axios.get(
       config.apiUrl +
-        "/contact/search/fl=id,name,email,company,phone,mobile;sort=created_date desc",
+        "/contact/search/fl=id;sort=created_date desc",
       {
         headers: freshToken,
         params: {
@@ -130,19 +129,33 @@ class VincereAdapter implements Adapter {
     );
     const contactCount: number = vincereContactsResponse.data.result.total;
     for (const vincereContact of vincereContactsResponse.data.result.items) {
-      const clinqContact: Contact = mapVincereContactToClinqContact(vincereContact);
+      const vincereFullContactResponse = await axios.get(
+        config.apiUrl +
+        "/contact/{id}".replace("{id}", vincereContact.id.toString()),{headers: await this.getFreshToken(config)}
+      );
+      const clinqContact: Contact = mapVincereContactToClinqContact(vincereFullContactResponse.data);
       const vincereContactUrlResponse = await axios.get(
         config.apiUrl +
-          "/contact/{id}/webapp/url".replace("{id}", clinqContact.id),{headers: await this.getFreshToken(config)}
+          "/contact/{id}/webapp/url".replace("{id}", vincereContact.id.toString()),{headers: await this.getFreshToken(config)}
       );
       clinqContact.contactUrl = vincereContactUrlResponse.data.url;
       const vincereContactPhotoResponse = await axios.get(
         config.apiUrl +
-          "/contact/{id}/photo".replace("{id}", clinqContact.id), {headers: await this.getFreshToken(config),}
+          "/contact/{id}/photo".replace("{id}", vincereContact.id.toString()), {headers: await this.getFreshToken(config),}
       );
       if (vincereContactPhotoResponse.data.file_name) {
         clinqContact.avatarUrl = vincereContactPhotoResponse.data.url;
       }
+      if (vincereFullContactResponse.data.company_id) {
+        const vincereCompanyResponse = await axios.get(
+          config.apiUrl +
+          "/company/{id}".replace("{id}", vincereFullContactResponse.data.company_id.toString()), {headers: await this.getFreshToken(config),}
+        );
+        if (vincereCompanyResponse.data.company_name) {
+          clinqContact.organization = vincereCompanyResponse.data.company_name;
+        }
+      }
+
       contacts.push(clinqContact);
     }
     infoLogger(userConfig.clientId, `Fetched contacts (${contacts.length}/${contactCount})`);
@@ -160,7 +173,7 @@ class VincereAdapter implements Adapter {
 
     const vincereCandidateResponse = await axios.get(
         config.apiUrl +
-        "/candidate/search/fl=id,name,primary_email,phone,mobile;sort=created_date desc",
+        "/candidate/search/fl=id;sort=created_date desc",
         {
           headers: freshToken,
           params: {
@@ -171,17 +184,17 @@ class VincereAdapter implements Adapter {
     );
     const candidateCount: number = vincereCandidateResponse.data.result.total;
     for (const vincereCandidate of vincereCandidateResponse.data.result.items) {
-      const clinqContact: Contact = mapVincereCandidateToClinqContact(vincereCandidate);
+      const vincereCandidateDetailsResponse = await axios.get(
+        config.apiUrl +
+        "/candidate/{id}/".replace("{id}", vincereCandidate.id.toString()),{headers: await this.getFreshToken(config),}
+      );
+      const clinqContact: Contact = mapVincereCandidateToClinqContact(vincereCandidateDetailsResponse.data);
+      clinqContact.avatarUrl = vincereCandidateDetailsResponse.data.photo_url;
       const vincereCandidateUrlResponse = await axios.get(
           config.apiUrl +
-          "/candidate/{id}/webapp/url".replace("{id}", clinqContact.id),{headers: await this.getFreshToken(config)}
+          "/candidate/{id}/webapp/url".replace("{id}", vincereCandidate.id.toString()),{headers: await this.getFreshToken(config)}
       );
       clinqContact.contactUrl = vincereCandidateUrlResponse.data.url;
-      const vincereCandidateDetailsResponse = await axios.get(
-          config.apiUrl +
-          "/candidate/{id}/".replace("{id}", clinqContact.id),{headers: await this.getFreshToken(config),}
-      );
-      clinqContact.avatarUrl = vincereCandidateDetailsResponse.data.photo_url;
       contacts.push(clinqContact);
     }
 
@@ -196,7 +209,7 @@ class VincereAdapter implements Adapter {
    * Users will be redirected here to authorize CLINQ.
    */
   public async getOAuth2RedirectUrl(config?: OAuthURLConfig): Promise<string> {
-    
+
     if (!config) {
       throw Error("no config provided");
     }
