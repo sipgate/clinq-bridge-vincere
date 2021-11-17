@@ -11,7 +11,7 @@ The distinction between candidates and contacts is important to understand the i
 To run the integration you need to contact vincere and 
 * get your client Id
 * get your API Key
-* communicate the sipgate redirect uri to vincere (redirect uri is called callback in the vincere oauth terminology)
+* communicate the sipgate redirect uri to vincere (redirect uri is called callback in the vincere oauth terminology): https://vincere.bridge.clinq.com/oauth2/callback
 
 For local development the follwoing environment variables must be set (use .env file, see envTemplate):
 * clientId - the client id you get from vincere
