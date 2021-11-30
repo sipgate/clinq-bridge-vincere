@@ -25,9 +25,9 @@ export const mapVincereContactToClinqContact = (vincereContactItem: any) => {
       phoneNumber: sanitizePhonenumber(vincereContactItem.home_phone),
     });
   }
-  const first_name: string = vincereContactItem.first_name ? vincereContactItem.first_name.trim(): '';
-  const last_name: string = vincereContactItem.last_name ? vincereContactItem.last_name.trim(): '';
-  const name: string = (first_name + ' ' + last_name).trim();
+  const firstName: string = vincereContactItem.first_name ? vincereContactItem.first_name.trim(): '';
+  const lastName: string = vincereContactItem.last_name ? vincereContactItem.last_name.trim(): '';
+  const name: string = (firstName + ' ' + lastName).trim();
   const contact: Contact = {
     id: `${vincereContactItem.id}`,
     email: vincereContactItem.email ? vincereContactItem.email : null,
@@ -44,27 +44,30 @@ export const mapVincereContactToClinqContact = (vincereContactItem: any) => {
 
 export const mapVincereCandidateToClinqContact = (vincereCandidateItem: any) => {
   const phoneNumbers: PhoneNumber[] = [];
-  if (vincereCandidateItem.phone) {
+  if (vincereCandidateItem.phone || (!vincereCandidateItem.phone && vincereCandidateItem.home_phone)) {
+    const phoneNumber: string = vincereCandidateItem.phone?vincereCandidateItem.phone:vincereCandidateItem.home_phone;
     phoneNumbers.push({
       label: PhoneNumberLabel.HOME,
-      phoneNumber: sanitizePhonenumber(vincereCandidateItem.phone),
+      phoneNumber: sanitizePhonenumber(phoneNumber),
     });
   }
-  if (vincereCandidateItem.work_phone) {
+  if (vincereCandidateItem.work_phone || (!vincereCandidateItem.work_phone && vincereCandidateItem.home_phone)) {
+    const phoneNumber: string = vincereCandidateItem.work_phone?vincereCandidateItem.work_phone:vincereCandidateItem.home_phone;
     phoneNumbers.push({
       label: PhoneNumberLabel.WORK,
-      phoneNumber: sanitizePhonenumber(vincereCandidateItem.work_phone),
+      phoneNumber: sanitizePhonenumber(phoneNumber),
     });
   }
-  if (vincereCandidateItem.mobile) {
+  if (vincereCandidateItem.mobile || (!vincereCandidateItem.mobile && vincereCandidateItem.home_phone)) {
+    const phoneNumber: string = vincereCandidateItem.mobile?vincereCandidateItem.mobile:vincereCandidateItem.home_phone;
     phoneNumbers.push({
       label: PhoneNumberLabel.MOBILE,
-      phoneNumber: sanitizePhonenumber(vincereCandidateItem.mobile),
+      phoneNumber: sanitizePhonenumber(phoneNumber),
     });
   }
-  const first_name: string = vincereCandidateItem.first_name ? vincereCandidateItem.first_name.trim(): '';
-  const last_name: string = vincereCandidateItem.last_name ? vincereCandidateItem.last_name.trim(): '';
-  const name: string = (first_name + ' ' + last_name).trim();
+  const firstName: string = vincereCandidateItem.first_name ? vincereCandidateItem.first_name.trim(): '';
+  const lastName: string = vincereCandidateItem.last_name ? vincereCandidateItem.last_name.trim(): '';
+  const name: string = (firstName + ' ' + lastName).trim();
   const contact: Contact = {
     id: `${vincereCandidateItem.id}`,
     email: vincereCandidateItem.email ? vincereCandidateItem.email : null,
