@@ -46,7 +46,7 @@ spec:
             - name: CACHE_REFRESH_INTERVAL
               value: "3600"
             - name: REDIS_URL
-              value: redis://clinq-cache-redis-master.redis.svc.cluster.local
+              value: rediss://10.37.248.211:6378
             - name: REDIRECT_URL
               value: https://vincere.bridge.clinq.com/oauth2/callback
             - name: OAUTH_IDENTIFIER
